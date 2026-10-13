@@ -1,0 +1,17 @@
+# ByteTrack tuned for a ~5 fps pipeline (the Ultralytics default assumes ~30 fps).
+#
+# At 5 fps a walking person moves far between two frames, so the box overlap
+# (IoU) with the previous position is small. The default then loses the track
+# and starts a new id: on a 4 minute aisle recording the default made 17 ids
+# (6 of them shorter than 5 frames) and left 28 frames with people but no ids.
+#   fuse_score: false  - do not multiply the overlap by the detection score;
+#                        a far, low-score person could never be matched
+#   match_thresh: 0.9  - accept a match down to IoU ~0.1 (was ~0.2)
+# Same recording with these: 12 ids, 2 short, 12 frames without ids.
+tracker_type: bytetrack
+track_high_thresh: 0.25
+track_low_thresh: 0.1
+new_track_thresh: 0.25
+track_buffer: 30
+match_thresh: 0.9
+fuse_score: false

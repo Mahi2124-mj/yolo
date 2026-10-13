@@ -1,0 +1,435 @@
+{
+ "cameras": [
+  {
+   "id": "cam1",
+   "name": "Toolroom",
+   "source": "rtsp://USER:PASSWORD@192.168.4.15:554/cam/realmonitor?channel=1&subtype=0",
+   "enabled": true,
+   "detect": true,
+   "zones": {
+    "stairs": [],
+    "handrail": [],
+    "walkway_center": [],
+    "gangway": [
+     [
+      876,
+      69
+     ],
+     [
+      994,
+      64
+     ],
+     [
+      1444,
+      1080
+     ],
+     [
+      365,
+      1080
+     ]
+    ],
+    "crossing": [
+     [
+      0,
+      845
+     ],
+     [
+      527,
+      796
+     ],
+     [
+      1329,
+      758
+     ],
+     [
+      1493,
+      734
+     ],
+     [
+      1920,
+      1080
+     ],
+     [
+      0,
+      1080
+     ]
+    ],
+    "checkpoint": [],
+    "restricted": []
+   },
+   "rules": {
+    "enabled": [
+     "PO",
+     "KE",
+     "RUN"
+    ]
+   },
+   "clock_box": [
+    60,
+    70,
+    560,
+    124
+   ]
+  },
+  {
+   "id": "cam2",
+   "name": "Dx",
+   "source": "rtsp://USER:PASSWORD@192.168.30.241:554/h264/ch1/main/av_stream",
+   "enabled": false,
+   "detect": true,
+   "zones": {
+    "gangway": [
+     [
+      747,
+      4
+     ],
+     [
+      453,
+      0
+     ],
+     [
+      1563,
+      1080
+     ],
+     [
+      1914,
+      1071
+     ],
+     [
+      1917,
+      800
+     ]
+    ],
+    "crossing": [
+     [
+      411,
+      122
+     ],
+     [
+      542,
+      335
+     ],
+     [
+      1000,
+      81
+     ],
+     [
+      898,
+      0
+     ]
+    ],
+    "stairs": [],
+    "handrail": [],
+    "checkpoint": [],
+    "restricted": []
+   },
+   "rules": {
+    "enabled": [
+     "PO",
+     "KE",
+     "RUN"
+    ]
+   },
+   "clock_box": [
+    1260,
+    2,
+    1910,
+    54
+   ]
+  },
+  {
+   "id": "cam3",
+   "name": "Material Gate",
+   "source": "rtsp://USER:PASSWORD@192.168.4.24:554/cam/realmonitor?channel=1&subtype=0",
+   "enabled": false,
+   "detect": true,
+   "zones": {
+    "gangway": [
+     [
+      1343,
+      520
+     ],
+     [
+      1483,
+      520
+     ],
+     [
+      1920,
+      772
+     ],
+     [
+      1917,
+      924
+     ]
+    ],
+    "crossing": [
+     [
+      38,
+      501
+     ],
+     [
+      0,
+      586
+     ],
+     [
+      1626,
+      606
+     ],
+     [
+      1478,
+      531
+     ]
+    ],
+    "stairs": [],
+    "handrail": [],
+    "restricted": [],
+    "checkpoint_left": [
+     [
+      465,
+      522
+     ],
+     [
+      620,
+      522
+     ],
+     [
+      620,
+      600
+     ],
+     [
+      465,
+      600
+     ]
+    ],
+    "checkpoint_right": [
+     [
+      1370,
+      532
+     ],
+     [
+      1535,
+      532
+     ],
+     [
+      1535,
+      610
+     ],
+     [
+      1370,
+      610
+     ]
+    ],
+    "working": [
+     [
+      1230,
+      391
+     ],
+     [
+      1482,
+      522
+     ],
+     [
+      507,
+      511
+     ],
+     [
+      573,
+      348
+     ]
+    ],
+    "checkpoint": [],
+    "truck_lane": [
+     [
+      0,
+      588
+     ],
+     [
+      1483,
+      605
+     ],
+     [
+      1920,
+      933
+     ],
+     [
+      1920,
+      1080
+     ],
+     [
+      1003,
+      1080
+     ],
+     [
+      361,
+      820
+     ]
+    ]
+   },
+   "rules": {
+    "SHI": {
+     "mode": "exit",
+     "pause_sec": 1.0,
+     "still_torso_ps": 0.4,
+     "head_move_thresh": 0.25,
+     "show_sec": 3.0,
+     "go_dir": {
+      "checkpoint_left": [
+       1,
+       0
+      ],
+      "checkpoint_right": [
+       -1,
+       0
+      ]
+     },
+     "stop_sec": 0.5,
+     "stop_move_torso": 0.55,
+     "go_min_torso": 1.0,
+     "need_stop": true,
+     "pad_margin": [
+      40,
+      90,
+      30
+     ],
+     "exempt_zone": "working",
+     "track_keep_sec": 2.0
+    },
+    "NA": {
+     "mode": "heading",
+     "along_max_deg": 30.0,
+     "across_min_deg": 91.0,
+     "per_zone": {
+      "gangway": {
+       "aisle_length_ratio": 10.0,
+       "junction_zone": "crossing"
+      },
+      "crossing": {
+       "aisle_length_ratio": 3.0,
+       "junction_zone": ""
+      }
+     },
+     "exempt_zone": "working",
+     "exempt_hold_sec": 30.0,
+     "exempt_lookahead_sec": 4.0,
+     "forbidden_zone": "truck_lane",
+     "forbidden_sec": 1.0,
+     "forbidden_gap_sec": 1.0,
+     "show_sec": 2.0,
+     "exempt_codes": [
+      "GUARD*"
+     ]
+    },
+    "enabled": [
+     "PO",
+     "KE",
+     "SHI"
+    ]
+   },
+   "models": {
+    "low_mem_imgsz": 640
+   },
+   "dress_code": {
+    "neutral_chroma": 12,
+    "blue_min_b": 8,
+    "blue_max_a": 14,
+    "looks": 3,
+    "window": 15
+   },
+   "truck_exempt": {
+    "every_sec": 1.0,
+    "conf": 0.3,
+    "classes": [
+     7,
+     5,
+     6
+    ],
+    "margin": 0.25,
+    "max_margin_px": 150,
+    "hold_sec": 8.0,
+    "ignore_boxes": [
+     [
+      560,
+      170,
+      810,
+      460
+     ]
+    ]
+   },
+   "clock_box": [
+    1440,
+    40,
+    1880,
+    98
+   ]
+  },
+  {
+   "id": "cam4",
+   "name": "Help-desk",
+   "source": "rtsp://USER:PASSWORD@192.168.4.59:554/cam/realmonitor?channel=1&subtype=0",
+   "enabled": true,
+   "detect": true,
+   "zones": {
+    "gangway": [
+     [
+      911,
+      0
+     ],
+     [
+      1064,
+      0
+     ],
+     [
+      1347,
+      1080
+     ],
+     [
+      752,
+      1080
+     ]
+    ],
+    "crossing": [],
+    "stairs": [],
+    "handrail": [],
+    "checkpoint": [
+     [
+      830,
+      673
+     ],
+     [
+      1229,
+      667
+     ],
+     [
+      1286,
+      953
+     ],
+     [
+      802,
+      962
+     ]
+    ],
+    "restricted": []
+   },
+   "rules": {
+    "enabled": [
+     "PO",
+     "KE"
+    ],
+    "SHI": {
+     "go_dir": {
+      "checkpoint": [
+       0,
+       1
+      ]
+     }
+    }
+   },
+   "clock_box": [
+    1430,
+    42,
+    1870,
+    100
+   ]
+  }
+ ]
+}

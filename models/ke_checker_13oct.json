@@ -1,0 +1,209 @@
+{
+ "thr": 0.5,
+ "det_min": 0.15,
+ "alerts": 121,
+ "candidates": 470,
+ "live_today": {
+  "all": {
+   "ok_caught": 41,
+   "ok": 84,
+   "ng_fired": 16,
+   "ng": 37
+  },
+  "sorted": {
+   "ok_caught": 4,
+   "ok": 10,
+   "ng_fired": 4,
+   "ng": 5
+  }
+ },
+ "new_checker_cv": {
+  "all": {
+   "ok_caught": 80,
+   "ok": 84,
+   "ng_fired": 26,
+   "ng": 37
+  },
+  "sorted": {
+   "ok_caught": 8,
+   "ok": 10,
+   "ng_fired": 4,
+   "ng": 5
+  }
+ },
+ "sorted_cases_cv": {
+  "1791798903_ID472_KE": {
+   "label": "OK",
+   "live_today": true,
+   "new": true,
+   "best_p": 1.0
+  },
+  "1791799157_ID514_KE": {
+   "label": "OK",
+   "live_today": false,
+   "new": true,
+   "best_p": 0.96
+  },
+  "1791805839_cam4_ID2068_KE": {
+   "label": "NG",
+   "live_today": true,
+   "new": true,
+   "best_p": 1.0
+  },
+  "1791805894_ID2147_KE": {
+   "label": "OK",
+   "live_today": false,
+   "new": true,
+   "best_p": 0.94
+  },
+  "1791806085_ID2353_KE": {
+   "label": "NG",
+   "live_today": true,
+   "new": false,
+   "best_p": 0.34
+  },
+  "1791806320_ID2462_KE": {
+   "label": "OK",
+   "live_today": false,
+   "new": true,
+   "best_p": 0.9
+  },
+  "1791806343_ID2468_KE": {
+   "label": "OK",
+   "live_today": true,
+   "new": true,
+   "best_p": 0.97
+  },
+  "1791806916_ID2576_KE": {
+   "label": "OK",
+   "live_today": true,
+   "new": true,
+   "best_p": 1.0
+  },
+  "1791815364_ID3621_KE": {
+   "label": "NG",
+   "live_today": true,
+   "new": true,
+   "best_p": 0.89
+  },
+  "1791816664_ID3950_KE": {
+   "label": "NG",
+   "live_today": false,
+   "new": true,
+   "best_p": 0.98
+  },
+  "1791837222_ID6184_KE": {
+   "label": "OK",
+   "live_today": false,
+   "new": true,
+   "best_p": 0.99
+  },
+  "1791839259_ID6376_KE": {
+   "label": "OK",
+   "live_today": true,
+   "new": true,
+   "best_p": 1.0
+  },
+  "1791841026_ID6590_KE": {
+   "label": "NG",
+   "live_today": true,
+   "new": true,
+   "best_p": 0.98
+  },
+  "blk_blocked_1012_150920_ID185_in_hand__cell_phone_0.30": {
+   "label": "OK",
+   "live_today": false,
+   "new": false,
+   "best_p": 0.18
+  },
+  "blk_blocked_1012_153235_ID552_in_hand__cell_phone_0.36": {
+   "label": "OK",
+   "live_today": false,
+   "new": false,
+   "best_p": 0.03
+  }
+ },
+ "sorted_cases_final_model": {
+  "1791798903_ID472_KE": {
+   "label": "OK",
+   "new": true,
+   "best_p": 1.0
+  },
+  "1791799157_ID514_KE": {
+   "label": "OK",
+   "new": true,
+   "best_p": 1.0
+  },
+  "1791805839_cam4_ID2068_KE": {
+   "label": "NG",
+   "new": false,
+   "best_p": 0.29
+  },
+  "1791805894_ID2147_KE": {
+   "label": "OK",
+   "new": true,
+   "best_p": 1.0
+  },
+  "1791806085_ID2353_KE": {
+   "label": "NG",
+   "new": false,
+   "best_p": 0.04
+  },
+  "1791806320_ID2462_KE": {
+   "label": "OK",
+   "new": true,
+   "best_p": 1.0
+  },
+  "1791806343_ID2468_KE": {
+   "label": "OK",
+   "new": true,
+   "best_p": 1.0
+  },
+  "1791806916_ID2576_KE": {
+   "label": "OK",
+   "new": true,
+   "best_p": 1.0
+  },
+  "1791815364_ID3621_KE": {
+   "label": "NG",
+   "new": false,
+   "best_p": 0.22
+  },
+  "1791816664_ID3950_KE": {
+   "label": "NG",
+   "new": true,
+   "best_p": 0.6
+  },
+  "1791837222_ID6184_KE": {
+   "label": "OK",
+   "new": true,
+   "best_p": 1.0
+  },
+  "1791839259_ID6376_KE": {
+   "label": "OK",
+   "new": true,
+   "best_p": 1.0
+  },
+  "1791841026_ID6590_KE": {
+   "label": "NG",
+   "new": false,
+   "best_p": 0.19
+  },
+  "blk_blocked_1012_150920_ID185_in_hand__cell_phone_0.30": {
+   "label": "OK",
+   "new": true,
+   "best_p": 0.97
+  },
+  "blk_blocked_1012_153235_ID552_in_hand__cell_phone_0.36": {
+   "label": "OK",
+   "new": true,
+   "best_p": 0.7
+  }
+ },
+ "final_model_all": {
+  "ok_caught": 83,
+  "ok": 84,
+  "ng_fired": 3,
+  "ng": 37
+ }
+}

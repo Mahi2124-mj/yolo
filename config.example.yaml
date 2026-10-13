@@ -1,0 +1,471 @@
+# Copy to config.yaml and put the real camera user/password in. NEVER commit config.yaml.
+camera:
+  # source: "rtsp://USER:PASSWORD@192.168.30.241:554/h264/ch1/main/av_stream"
+  source: "rtsp://USER:PASSWORD@192.168.4.15:554/cam/realmonitor?channel=1&subtype=0"
+
+  rtsp_transport: tcp
+  reconnect_delay: 3.0
+  target_fps: 20
+  max_width: 1920
+
+models:
+  pose: yolo11n-pose.pt
+  detect: yolo11n.pt
+  device: cpu
+  conf: 0.35
+  imgsz: 640
+  tracker: trackers/bytetrack_lowfps.yaml   # ByteTrack tuned for ~5 fps (see the file)
+  torch_threads: 4
+  low_memory: true
+  low_mem_imgsz: 480
+
+rules:
+  enabled:
+    - PO
+    - KE
+    - TE
+    - NA
+    - SHI
+    - RUN
+    - FALL
+    - RESTRICTED
+
+  # Judge these rules only for people whose feet are inside `zone` (the aisle).
+  # People at the racks / machines outside it are drawn grey and never flagged.
+  # Remove a rule from the list to judge it everywhere again (e.g. FALL).
+  zone_gate:
+    zone: [gangway, crossing]   # crossing = the side gangways under the camera
+    rules: [PO, KE, RUN, FALL]
+    margin_px: 15
+
+  KE:
+    min_frames: 1
+    # KE fires only on a phone SEEN in the hand: the raised hands (belly, chest
+    # or ear) are cut out, zoomed and run through the phone model (see
+    # poketenashi/ke.py). The old pose-only path flagged paper, trolleys, bags,
+    # gloves and clasped hands (~25 of 33 KE alerts checked on 26 Sep), and the
+    # old full-frame 1280 phone pass took 70% of the CPU - both removed.
+    phone_model: yolo11m.pt  # on the 26 Sep clips: 28 frames >= 0.40 on a real phone vs 9 (yolov8s)
+    zoom_imgsz: 256          # scored real phones better than 320 / 416
+    zoom_conf: 0.40          # paper / hands / trolleys peaked at 0.49, and only in single frames
+    zoom_min_hits: 2         # frames with a phone found ...
+    zoom_window_sec: 3.0     # ... within this many seconds
+    zoom_single_conf: 0.55   # 10 Oct 12:45: one CLEAR phone frame fires KE at once; 0.40 fired on a crowd at 12:38 (ID789, no phone); 0.40-0.55 needs 2 frames
+    verify_phone_conf: 0.40  # 10 Oct (user): before KE fires the object model must see a phone at the wrist (person crop, strongest hand object) - 10 Oct: 2/2 real KE confirmed, 0 of the 5 false
+    verify_every_sec: 0.5
+    shadow_checker:          # 13 Oct (user, option 2): phone checker in SHADOW only - logs to D:/poketenashi-data/ke_shadow, never changes an alert
+      path: models/ke_checker_13oct.pt
+      thr: 0.5
+      det_min: 0.15
+    zoom_every_n: 1
+    # A phone is small: a "phone" box longer than this * torso is paper, a
+    # notebook or a trolley handle (0.65-0.82 on ID81, ID8217, ID13; real
+    # phones 0.06-0.46).
+    zoom_max_long_torso: 0.5
+    # Ear call (poketenashi/ke.py): the hand kept at the ear for call_sec (in
+    # >= call_ratio of the frames) AND a phone there - found near the head from
+    # ear_conf, ear_min_hits times in ear_window_sec - or seen in the hand within
+    # phone_memory_sec. A phone at the ear is mostly hidden: real calls scored
+    # 0.25-0.42 in the zoom (28 Sep). Once fired it holds while the hand stays up.
+    ear_conf: 0.25
+    ear_min_hits: 2
+    ear_window_sec: 4.0
+    call_sec: 1.5
+    call_ratio: 0.7
+    phone_memory_sec: 8.0
+    # Once fired, KE stays on while the hand stays raised (chest / ear) even
+    # when the phone is not found in every frame; hands down this long, or no
+    # sighting for hold_max_gap_sec, ends it.
+    hold_hands_down_sec: 1.5
+    hold_max_gap_sec: 10.0
+    walk_speed_ps: 45
+    # 7 Oct: both hands up at the head (fixing a cap, wiping the face) is not a call -
+    # the zoom took the cap brim for a phone (night alerts 18:21 ID508, 08:22 ID322; the
+    # 28 Sep test's glove worker). Replay: those gone, every real phone kept. Roll back: false
+    both_hands_head_veto: true
+    # seen from behind, an ear call needs a clear phone (a guard's back at 04:07 took the
+    # blue kiosk board for one at 0.31; real calls 0.48-0.89). Facing: ear_conf above.
+    # 28 Sep test: no alert lost. Roll back: 0.25
+    ear_back_conf: 0.40
+
+  PO:                # 13 Oct ~12:30 (user: 'trained model jo best h usko use kr'): v7 setup as live 12 Oct 14:38 (_backup/20261009_po_v7/config_v7_before_overnight.yaml)
+    # The rule as it ran 10-24 Sep (poketenashi/rules.py _rule_PO_geom): per
+    # arm - ONE hand in a pocket is PO, walking or standing, in the gangway.
+    # Pocket = wrist at the hip, parked there relative to the body, arm shaped
+    # like it (min_cues) and no fingers found there by MediaPipe.
+    # NOT a pocket (28 Sep): a glimpse - the pocket test must pass in >=
+    # confirm_ratio of the frames of the last confirm_sec (>= confirm_min_frames);
+    # a person cut off by the frame bottom; both hands together in front.
+    confirm_sec: 1.0
+    confirm_ratio: 0.6
+    confirm_min_frames: 3
+    hands_together_filter: true
+    hold_sec: 1.5            # once shown, PO stays this long past the last pocket frame
+    method: fingertips
+    wrist_hip_ratio: 0.45
+    min_keypoint_conf: 0.4
+    min_frames: 2
+    master_file: masters/po_masters.npz
+    master_k: 5
+    master_min_conf: 0.55
+    master_scale: 0.6
+    use_fingertips: true
+    fingertips_visible_min: 1
+    hand_match_ratio: 0.65
+    wrist_region_ratio: 0.75
+    fingertip_upscale: 448
+    fingertip_det_conf: 0.15
+    fingertip_every_n: 2
+    elbow_bend_deg: 150
+    tuck_ratio: 0.10
+    hang_drop_ratio: 0.35
+    min_cues: 2
+    use_wrist_motion: true
+    wrist_move_window: 15
+    # A hand that moves is not in a pocket (the wrist trail). 0.08 let walkers'
+    # hanging arms through - 0.06-0.09 seen from the front or behind; the 25 Sep
+    # pocket tester's wrist stayed at 0.03-0.06. At 0.055 none of the 26 false
+    # alerts of 28 Sep fired on replay, and the tester still did - but in the
+    # 13:01-13:05 live test pockets while WALKING moved 0.06-0.19 and standing
+    # ones 0.05-0.07, so 0.055 missed them. 0.07 keeps the standing pockets;
+    # walking pockets need an appearance model (hand in a pocket vs visible).
+    wrist_move_thresh: 0.07
+    # a wrist is "still" only once it has been watched for a few frames
+    still_needs_history: true
+    # a hand more than this (torso lengths) above the hip is not in a pocket:
+    # a phone or papers held at the belly / chest
+    wrist_above_hip_max: 0.15
+    draw_wrist_trail: false
+    # 3 Oct 2026: PO from EVIDENCE (rules.py _rule_PO_evidence) - the pocket
+    # model looks at each hand at the hip; wrist motion, elbow angle and
+    # MediaPipe are not used (on 926 labelled arms they do not separate a
+    # pocket from a free hand). Replay, clean live hour 12:29-13:29: 2 false
+    # alerts vs 7 for the geometry rule above; 28 Sep test video (model held
+    # out): 7/7 sustained pockets vs 1/7. People seen from behind are not
+    # judged (5 of 8 false alerts were walkers going away).
+    # ROLL BACK to the geometry rule: pipeline: geom AND use_model: false.
+    pipeline: evidence      # 12 Oct 14:40: v7 chosen from the review of 163 judged alerts (OK caught 34/49, NG fired 14/112 vs v1 35/44). Geometry: _backup/20261009_po_v7/config_before_v7_1440.yaml
+    evidence_model: arm
+    # 7 Oct 2026: arm model v4 = v3 data + the 32 user-labelled live alerts of
+    # 6-7 Oct (PO_review: hand resting on the jeans / on the hip / trolley / held
+    # object = NOT pocket). Held-out on those clips: false 7 -> 0, real 12/14 -> 11/14;
+    # raw 75 min 0 -> 0. ROLL BACK: models/po_arm_mnv3.pt
+    # 8 Oct 16:3x: v6 = v4 fine-tuned on other people (navy polo, dark trousers,
+    # user-confirmed Dx test 14:45). ROLL BACK: models/po_arm_v4.pt
+    model_path: models/po_arm_v7.pt
+    evidence_cutoff_torso: 0.6   # 10 Oct: the frame ends within 0.6 torso below the hips (pocket + hand half out of view) -> not judged
+    evidence_side_edge_px: 8     # 10 Oct: box touching the left/right picture edge -> not judged (half out of view)
+    use_model: true
+    evidence_hi: 0.50        # v7
+    evidence_lo: 0.15
+    evidence_need_face: true
+    evidence_min_torso: 70
+    # an unsure look (P between lo and hi) counts AGAINST the pocket in the
+    # confirm ratio: 15:03 a man touching his specs got PO from 3 confident
+    # frames among 5 unsure ones (the pose put his raised wrist at the hip).
+    # Replay: raw hour still 2, 28 Sep video 6/7 sustained pockets, 5 vs 7 extra.
+    evidence_uncertain_as_not: true
+    # 15:25 a woman fixing her cap and holding a pen got PO: the pose dropped
+    # her raised wrists to the waist, and each model score was reused for 2
+    # frames, so 2 looks passed as 4 frames. A pocket arm's forearm runs DOWN
+    # into the pocket (labelled: 0.30-0.48 torso below the elbow), and every
+    # frame gets its own look. Replay: raw hour 0 alerts; 28 Sep video 6/7
+    # sustained pockets; the cap, specs and 14:19/14:29 cases silent, the
+    # 15:23-15:25 pocket testers still caught.
+    evidence_min_forearm_drop: 0.2
+    model_every_n: 1
+    # 18:01 a man with both hands at his face got PO: the live pose (the whole
+    # frame at 480 px - a person is ~80 px tall there) drew both arms hanging
+    # to the pockets, straight, so the forearm check passed. A closer look
+    # first: the person's own crop is posed again (a second yolo11n-pose at
+    # 320, ~24 ms, only when the pocket model says POCKET); if none of its
+    # wrists is at a hip near the live wrist, that frame is no evidence.
+    # Replay: 28 Sep video 6/7 sustained pockets and the 25 Sep tester -
+    # unchanged; 75 min raw 0 alerts - unchanged; it stepped in only on the
+    # cap, specs and hands-at-face clips.
+    evidence_repose: true
+    evidence_repose_imgsz: 320
+    # 6 Oct 2026: PO from SUSTAINED evidence (rules.py _po_decide_sustain).
+    # Per arm, every frame is POCKET / VISIBLE_OUT (hand seen: model <= lo,
+    # wrist away from the hip, forearm folded up, hands together) / UNSURE /
+    # UNKNOWN (behind, small, no wrist, re-pose disagreed, night IR). An arm
+    # needs evidence_sustain_sec of POCKET; a hand seen out starts it over, an
+    # unsure look takes time off, a hidden hand counts neither way - and only
+    # for evidence_unknown_max_sec. "Hand not visible" is never PO by itself.
+    # Why: of 41 live PO alerts 4-6 Oct, ~35 were false (hands hanging or
+    # swinging, paper / phone / box in hand, hands behind the back), mostly
+    # 1-5 frame POCKET glimpses between frames where the hand was seen; real
+    # pockets held 10-26 frames. Replay (25 Sep + 28 Sep tests with held-out
+    # models, 5 Oct Dx test, 41 live clips, 75 min raw): real PO shown 12/15
+    # before and after (walking 8/9, standing 4/6); false PO 25 -> 10; raw 0.
+    # ROLL BACK: evidence_sustain_sec: 0 (the 1 s / 3-frame confirm above).
+    evidence_sustain_sec: 0.8
+    evidence_unsure: decay
+    evidence_unknown_max_sec: 3.0
+    evidence_out_why: [away, folded, together]
+    evidence_gap_sec: 1.5
+    # Night IR (grey picture, frame saturation < evidence_ir_max_sat; day
+    # ~80-100, IR ~15): PO not judged - the model was never trained or checked
+    # on IR, and both 5 Oct night alerts were false. Roll back: false.
+    evidence_skip_ir: false     # 13 Oct (user): capture everything at night too
+    # 7 Oct 2026 (user's Dx test: the red box flickered red/green while she
+    # stood with both hands in her front pockets): a confirmed PO is LATCHED -
+    # it ends after evidence_release_out_sec of the model seeing that hand OUT
+    # (P <= evidence_lo; a pose-only "away/folded" does not release), or
+    # evidence_latch_max_sec with no POCKET frame, or the person gone. Replay
+    # of her 3 clips: red 128/265 -> 173/265 frames, no gaps. Roll back: false.
+    evidence_latch: true
+    # 9 Oct 2026 (user): the OK PO cases in PO_review_v4\OK_PO_real are the MASTERS
+    # (hand-in-pocket pose only - poketenashi/po_refs.py). A POCKET hand that
+    # matches a master (similarity >= ref_sim) is PO in ONE frame; similar
+    # (>= ref_sim_similar) needs 2 POCKET frames, any other pocket 3 - within
+    # pocket_window_sec. The 0.8 s sustain path still works as before.
+    # Roll back: delete these 6 lines.
+    # ref_dirs: [PO_review_v4/OK_PO_real]       # user 9 Oct: masters ONLY from these two folders   # 13 Oct (user): no OK/NG folder check - PO by the rules only
+    # ref_ng_dirs: [PO_review_v4/NG_PO_false]   # a pocket hand closer to these than to OK is not counted   # 13 Oct (user): no OK/NG folder check - PO by the rules only
+    evidence_object_veto: [39, 40, 41, 65, 67, 73, 76]   # bottle, wine glass, cup, remote, phone, book, scissors held at the hip: not PO
+    evidence_object_conf: 0.3
+    evidence_object_near: 0.4   # object centre within 0.4 torso of the wrist
+    ref_k: 3                 # mean of the 3 closest masters
+    ref_keep_p: 0.15         # v7 scale
+    ref_margin: 0.0          # 9 Oct 13:50: was 0.05 - with only 42 OK master hands it vetoed EVERY pocket (ID789 13:47 missed); a hand must just not be closer to NG than OK
+    ref_min_p: 0.10          # v7 scale
+    ref_unsure_margin: 0.10
+    ref_reload_sec: 600      # re-check the master folders every 10 min; rebuild when they changed
+    ref_sim: 0.15            # margin for ONE frame
+    ref_sim_similar: 0.10    # margin for 2 frames; otherwise 3 POCKET frames
+    pocket_min_frames: 2     # 9 Oct 14:20 (user): any pocket-looking hand is confirmed in 2 frames (exact master match = 1 frame, ref_sim)
+    pocket_min_frames_similar: 2
+    pocket_window_sec: 6.0   # 9 Oct 14:15: was 4 - Help-desk ID81 13:59 (real PO, user) had 3 POCKET frames spread wider and never fired
+    evidence_release_out_sec: 1.0
+    evidence_latch_max_sec: 6.0
+    evidence_ir_max_sat: 30
+
+  TE:
+    min_frames: 6
+
+  NA:
+    zone: gangway
+    # Headings are measured on a TOP-DOWN view of the gangway (its 4 corners),
+    # so walking along the side of the aisle is ~0 deg, not the 20-30 deg slant
+    # the perspective gives it in the picture.
+    aisle_length_ratio: 8.0  # visible length / width of the zone (from walking speeds)
+    min_cross: 0.3           # the diagonal must carry the person 30% of the width ACROSS
+    along_max_deg: 30.0
+    across_min_deg: 65.0
+    window_sec: 1.5
+    min_travel: 0.8
+    confirm_sec: 0.8
+    min_frames: 4
+    # 3 Oct 2026: NA = a DIAGONAL ENTRY (na.py _update_entry) - someone cutting
+    # INTO the gangway on a slant from its side (racks, machines, a side gangway
+    # once the junction grace is over). People already walking in it who drift,
+    # change lane, step round material or angle off to a side gangway are not
+    # judged. Replay, 205 alert clips + 75 min raw video: real diagonal entries
+    # 73 of 74 (old rule 65); non-entry alerts 3 (old rule 76).
+    # ROLL BACK to the old rule: mode: heading
+    mode: entry
+    edge_margin: 0.15        # within this of a long edge = at the side (painted lines at ~0.09 / ~0.93)
+    entry_window_sec: 5.0    # off the side this long without crossing = no longer an entry
+    settle_sec: 1.5          # walking along this long after coming in = merged into the lane
+    side_dwell_sec: 5.0      # at the side this long (working there) = cross counted from where they stood
+    max_gap_sec: 1.5         # tracker drop-outs up to this keep a person's state
+
+  SHI:
+    # 8 Oct 2026 (user): every camera - STOP-LOOK-GO is judged only on someone
+    # LEAVING a poster (checkpoint zone) the way its painted feet point, without
+    # a 0.5 s stop on it. The feet direction is set per poster in the Zone editor
+    # (camera rules.SHI.go_dir); a poster without one counts leaving in any
+    # direction. Replay cam4 8 Oct: 23 alerts on people walking INTO the gangway
+    # gone, all 5 walking out without a stop kept. Roll back: mode: checkpoint.
+    mode: exit
+    stop_sec: 0.5
+    stop_move_torso: 0.55
+    go_min_torso: 1.0
+    go_cos: 0.25             # within ~75 deg of the feet direction
+    need_stop: true
+    pad_margin: [40, 90, 30]
+    show_sec: 3.0
+    pause_speed_px: 1.5
+    pause_frames: 8
+    head_move_thresh: 0.25
+    head_window: 25
+    experimental: true
+
+  RUN:
+    speed_torso_per_sec: 5.0
+    speed_window_sec: 0.5
+    min_frames: 6
+
+  FALL:
+    edge_margin_px: 4
+    torso_angle_deg: 60
+    aspect_thresh: 1.3
+    legs_veto: true          # legs still standing under the hips = bending over, not a fall
+    min_frames: 12           # ~2 s at 5-6 fps: someone who fell stays down; a bend-over does not
+    # the "box wider than tall" fallback (no torso keypoints) only for a confident person:
+    # 7 Oct 02:00-02:23 a stack of empty crates was a "person" (conf 0.38-0.44) -> 36 FALL
+    # alerts; replay of that half hour: 26 alerts at 0, 0 at 0.5; day footage 0 either way.
+    # Roll back: 0
+    fallback_min_conf: 0.5
+
+  RESTRICTED:
+    min_frames: 3
+
+zones:
+  stairs: []
+  handrail: []
+  walkway_center: []
+  gangway: [[876, 69], [994, 64], [1444, 1080], [365, 1080]]
+  # T-junction under the camera: the side gangways marked by the white lines
+  # running left (y~935-974) and right (y~802-866) from the aisle. Moving left
+  # or right here, or turning into the aisle from here, is not NA.
+  crossing: [[0, 845], [527, 796], [1329, 758], [1493, 734], [1920, 1080], [0, 1080]]
+  checkpoint: []
+  restricted: []
+
+clips:
+  enabled: true
+  dir: "D:/poketenashi-data/clips"
+  pre_sec: 4.0
+  post_sec: 4.0
+  fps: 8
+  max_width: 1280
+  max_sec: 20
+
+# Training samples from the live camera: crops of people near the camera with a
+# hand at the hip (PO) or raised (KE), kept WHETHER OR NOT a rule fired, with
+# what the rules said - reviewed to find false alerts and misses, labelled to
+# train the pocket / phone classifiers (poketenashi/sampler.py).
+samples:
+  enabled: true
+  dir: "D:/poketenashi-data/samples"
+  min_torso: 90        # px of the 1920 frame: close enough to judge
+  every_sec: 1.5       # per person and kind
+  per_track: 4         # samples per person and kind
+  daily_cap: 4000      # per kind
+
+retention:
+  days: 2
+  sweep_min: 30
+  trim_log: true
+
+web:
+  host: 0.0.0.0
+  port: 6002
+  jpeg_quality: 85
+  stream_max_width: 1920
+
+alerts:
+  cooldown_sec: 8.0          # an incident ends when its violation has not been seen for this long
+  repeat_sec: 60             # a violation still going on is alerted again this often (0 = once)
+  merge_iou: 0.4             # a new track id this close to a running incident is the same person
+  log_file: violations.jsonl
+  save_snapshots: false
+  snapshot_dir: "D:/poketenashi-data/snapshots"
+
+output:
+  show_window: true
+  save_video: false
+  output_video: output.mp4
+  draw_keypoints: true
+  draw_zones: false
+  draw_hand_skeleton: false
+  enhance: false
+  enhance_clip: 2.0
+  enhance_grid: 8
+  enhance_sharpen: false
+  sharpen_amount: 0.5
+  debug: false
+# Face ID (poketenashi/faceid.py): the employee code shown on a person's box,
+# e.g. "[481] ID12", and written to their alert rows ("person"). Photos: one
+# folder per person, images/ID <code>/ (front + side, with / without cap or
+# glasses); the gallery rebuilds itself when they change. Models: InsightFace
+# buffalo_l in ~/.insightface/models. The ceiling cameras see faces ~40-55 px
+# wide, so a code is given only when several looks of the same person agree.
+face_id:
+  enabled: true
+  gallery_dir: images
+  upscale: 4               # head crop x4 + CLAHE / unsharp before detection (no AI "enhance")
+  look_every_sec: 1.5      # per person while unknown
+  recheck_sec: 5.0         # per person once named
+  min_face_px: 22
+  frame_min: 0.25          # a look votes for a code from this similarity
+  need_votes: 3
+  need_ratio: 0.4
+  need_top: 0.35           # mean of the 3 best looks
+  margin: 0.08             # over the other codes
+  # 8 Oct 2026 (Toolroom 08:32: named ~20 s late): replay 08:32 named 08:32:45 -> 08:32:41,
+  # with an id switch 08:32:44 -> 08:32:42; no stranger named. Roll back: delete these 4 lines.
+  handover_sec: 2.0        # a new track where one vanished <= 2 s ago keeps its looks / code
+  fast_face_px: 30         # once a face of this size was found ...
+  fast_look_sec: 0.5       # ... look again after 0.5 s instead of look_every_sec
+  vote_min_face_px: 30     # smaller (far, blurred) faces are not votes
+  threads: 1
+
+# Every alert's clip + poster + log row kept for good, 24x7, in <dir>/<YYYYMMDD>/
+# (poketenashi/archive.py; user, 7 Oct). The retention above only clears the live
+# clips folder. ~150 MB a day.
+evidence_archive:
+  enabled: true
+  dir: "D:/poketenashi-data/evidence"
+  every_sec: 60
+
+# 8 Oct 2026 (user): PPE in SHADOW mode on every camera - cap (any colour) and
+# black safety shoes are judged and logged with crops, but raise NO alert, until
+# the models are good enough (poketenashi/ppe_shadow.py). Log + crops:
+# D:/poketenashi-data/ppe/shadow/<date>/. Switch off: enabled: false.
+ppe_shadow:
+  enabled: true
+  dir: "D:/poketenashi-data/ppe/shadow"
+  cap_model: models/ppe_cap_v1.pt
+  look_sec: 1.0
+  looks: 4
+  min_h: 160
+  max_per_frame: 2
+  cap_threshold: 0.5
+  shoe_dark_min: 0.12
+
+# 8 Oct 2026 (user): until 07:00 every hand at the hip is saved for review, so a
+# missed PO is not lost (poketenashi/po_cand.py). Folders by pocket score:
+# alert / likely / maybe / near, + candidates.csv. Switch off: enabled: false.
+po_candidates:
+  enabled: false     # 13 Oct (user): PO untrained 1 Oct state - no training-data collection for PO models
+  dir: "D:/poketenashi-data/po_candidates"
+  until: ""          # 9 Oct: runs for good (the teacher below)
+  likely_p: 0.3      # v7 scale
+  maybe_p: 0.1
+  shots: 3
+  teach:             # 9 Oct (user): a likely PO with no alert, judged by the masters:
+    enabled: false   # 12 Oct 15:00 (user: "kisi ko kuch sikhana nhi h") OFF -   exact match -> OK master, no match -> NG master, in between -> review
+    ok_margin: 0.15  # best OK-minus-NG margin of the track for 'exact match'
+    ng_margin: -0.5  # 9 Oct 13:50: auto-NG OFF (it taught real pockets as NG while the OK masters were thin) - review only
+    ok_dir: PO_review_v4/OK_PO_real/_agent_auto
+    ng_dir: PO_review_v4/NG_PO_false/_agent_auto
+    review_dir: PO_review_v4/_agent_review
+    max_files: 600
+
+# 10 Oct 2026 (user): every person seen -> snapshot + persons.csv row (poketenashi/person_log.py);
+# clips cut from the raw recording by tools/person_clips.py (tools/person_agent_start.cmd)
+po_check:             # 13 Oct (user): snapshot anyone whose hand is hidden at the hip, for the user to check PO misses - shadow, no alerts (poketenashi/po_watch.py, tools/po_check_clips.py)
+  enabled: true
+  dir: "C:/Users/DX-ADMIN/Pictures/yolo/PO_check"
+  check_sec: 1.0      # per person, at most one hand look a second
+  near_torso: 0.6     # wrist this close to the hip (x torso) = at the hip
+  min_hidden: 3       # hidden-hand looks before a person is saved
+  min_torso_px: 50
+
+person_log:
+  enabled: true
+  dir: "D:/poketenashi-data/persons"
+  track_end_sec: 3.0
+  max_track_sec: 60.0
+  sample_sec: 0.5
+  min_height_px: 60
+  ignore_boxes:          # per camera, [x1, y1, x2, y2] of the 1920x1080 frame: not a person
+    cam4: [[483, 242, 613, 565]]   # the PPE cartoon standee, Help-desk
+
+# 10 Oct 2026 (user): fixed things the pose model takes for a person - dropped before
+# boxes, rules and logs. Per camera, [x1, y1, x2, y2] in the 1920x1080 frame (IoU >= 0.5).
+not_persons:
+  cam4: [[483, 242, 613, 565]]   # the PPE cartoon standee, Help-desk

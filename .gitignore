@@ -1,0 +1,33 @@
+# secrets - real camera passwords, users, TV links
+config.yaml
+monitor_cameras.json
+cameras.json
+users.json
+sessions.json
+displays.json
+config_backups/
+# people / video / logs - never on GitHub
+images/
+footage/
+material gate clips/
+PO_review*/
+PO_check/
+PO_v7_check*/
+PO_dx_test*/
+report_*/
+Toolroom alerts*/
+logs/
+violations*.jsonl
+*.mp4
+*.avi
+_backup/
+backups/
+agent_reports/
+models/face_gallery.npz
+models/po_refs_cache_*.pkl
+masters/
+# environment
+.venv/
+__pycache__/
+*.pyc
+restart.request

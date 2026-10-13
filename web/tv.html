@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Poketenashi TV</title>
+<style>
+/* Wall-screen view for TV browsers: the live picture with the violations beside
+   it. Deliberately plain, so that browsers many years old still run it: ES5
+   JavaScript with XMLHttpRequest, no CSS variables, grid or flex. The full
+   dashboard is at / . Rule colours match the dashboard.
+   /tv            the camera picked in the top bar (remembered on this screen),
+                  or every camera that is switched on
+   /tv?cam=cam2   just that camera, and only its violations (a link wins) */
+html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#000;color:#e6edf3;
+  font-family:"Segoe UI",Roboto,"Noto Sans",Arial,sans-serif}
+#top{position:absolute;left:0;right:0;top:0;height:54px;line-height:54px;padding:0 16px;
+  background:#0b0f16;border-bottom:1px solid #263041;white-space:nowrap;overflow:hidden;font-size:19px}
+#top b{letter-spacing:.14em;margin-right:8px}
+#top .brand{margin-right:22px}
+#tClock{float:right;font-size:22px;font-weight:600}
+#back{display:inline-block;vertical-align:middle;height:36px;line-height:34px;padding:0 14px 0 10px;margin-right:18px;
+  border:1px solid #2c3747;border-radius:7px;background:#18202b;color:#e6edf3;text-decoration:none;font-size:16px;
+  font-weight:600;box-sizing:border-box}
+#back:hover{background:#1f2836}
+#back:focus{outline:3px solid #3987e5;outline-offset:1px}
+#back .arr{font-size:22px;margin-right:6px;vertical-align:top}
+#camWrap{display:inline-block;vertical-align:middle;margin-right:24px;line-height:normal}
+#camWrap label{font-size:14px;color:#a5b3c4;margin-right:8px;vertical-align:middle}
+#camSel{height:36px;min-width:190px;max-width:320px;padding:0 10px;font-size:16px;vertical-align:middle;
+  background:#151b24;color:#e6edf3;border:1px solid #2c3747;border-radius:7px}
+#camSel:focus{outline:3px solid #3987e5;outline-offset:1px}
+.it{display:inline-block;margin-right:28px}
+.dot{display:inline-block;width:12px;height:12px;border-radius:50%;background:#74839a;
+  margin-right:9px;vertical-align:middle}
+.dot.ok{background:#199e70}
+.dot.bad{background:#e05252}
+.mut{color:#a5b3c4}
+#stage{position:absolute;left:0;top:55px;bottom:0;right:25%;background:#000;overflow:hidden}
+.tile{position:absolute;overflow:hidden;background:#000;box-sizing:border-box;border:2px solid #000}
+.tile.multi{border-color:#0b0f16}
+.feed{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain}
+.name{position:absolute;left:10px;top:9px;background:rgba(0,0,0,.65);color:#fff;font-size:17px;
+  font-weight:600;padding:3px 10px;border-radius:5px}
+.off{background:#e05252;color:#fff;font-weight:700;font-size:13px;letter-spacing:.08em;
+  padding:2px 8px;border-radius:4px;margin-left:8px;display:none}
+.wait{position:absolute;left:0;right:0;top:44%;text-align:center;font-size:20px;color:#a5b3c4;padding:0 20px}
+#msg{position:absolute;left:0;right:0;top:44%;text-align:center;font-size:24px;color:#a5b3c4;padding:0 30px;display:none}
+#side{position:absolute;right:0;top:55px;bottom:0;width:25%;background:#0b0f16;
+  border-left:1px solid #263041;overflow:hidden;padding:0 14px;box-sizing:border-box}
+#side h3{margin:14px 0 10px;font-size:16px;font-weight:600;color:#a5b3c4;letter-spacing:.06em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card{overflow:hidden;background:#151b24;border:1px solid #263041;border-radius:8px;margin-bottom:10px}
+.card img{float:left;width:44%;margin-right:10px;background:#000;display:block}
+.card .t{padding:7px 8px 6px 0;font-size:15px;line-height:1.4}
+.badge{display:inline-block;border-radius:5px;padding:1px 8px;font-size:14px;font-weight:700;
+  color:#fff;background:#3987e5;margin-right:8px}
+.empty{color:#74839a;font-size:16px;padding:16px 0}
+/* A violation that has just happened: highlighted in the side list for a while
+   (no banner over the picture - the picture stays clear). */
+.card.new{border-width:2px;background:#1b2433;box-shadow:0 0 0 3px rgba(229,83,75,.18)}
+/* 12 Oct (user): tap a violation -> its clip plays right there in the card */
+.card{cursor:pointer}
+.card.play{border-color:#3987e5;border-width:2px}
+.card video{display:block;width:100%;background:#000;max-height:46vh}
+.card .play-ic{position:relative;display:inline-block;margin-left:6px;color:#8fb3ff;font-size:13px}
+.newtag{display:inline-block;background:#e05252;color:#fff;font-size:12px;font-weight:700;letter-spacing:.06em;
+  padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:1px;animation:blink 1.2s ease-in-out infinite}
+@keyframes blink{50%{opacity:.35}}
+#tRules.warn{color:#f0c75e}
+@media (max-width:1280px){ #tFps,#tRules,#tBrand{display:none} #camWrap label{display:none} }
+@media (max-width:1100px){ #top b,#tMon{display:none} .it{margin-right:18px} #back{margin-right:12px} #camWrap{margin-right:16px} }
+@media (max-width:760px){ #back .txt{display:none} #back{padding:0 10px} }
+</style>
+</head>
+<body>
+<div id="top">
+  <span id="tClock"></span>
+  <a id="back" href="/" title="Back to the dashboard"><span class="arr">&lsaquo;</span><span class="txt">Dashboard</span></a>
+  <b>POKETENASHI</b><span class="mut brand" id="tBrand">SAFETY MONITOR</span>
+  <span id="camWrap" style="display:none"><label for="camSel">Camera</label><select id="camSel" title="Which camera this screen shows"></select></span>
+  <span class="it"><span class="dot" id="dMon"></span><span id="tMon">connecting&hellip;</span></span>
+  <span class="it"><span class="dot" id="dCam"></span><span id="tCam">camera&hellip;</span></span>
+  <span class="it mut" id="tFps"></span>
+  <span class="it mut" id="tRules"></span>
+</div>
+<div id="stage">
+  <div id="msg"></div>
+</div>
+<div id="side"><h3 id="sideTitle">LATEST VIOLATIONS</h3><div id="recent"><div class="empty">loading&hellip;</div></div></div>
+<script>
+(function(){
+  /* No rule names here: every violation arrives with its label (`desc`, written
+     by the monitor from poketenashi/ruleinfo.py), so this screen and the
+     dashboard cannot describe the same rule differently. Colours only. */
+  var COLORS = {PO:"#3987e5", KE:"#d95926", TE:"#199e70", NA:"#c98500", SHI:"#d55181",
+    RUN:"#008300", FALL:"#9085e9", RESTRICTED:"#e66767"};
+
+  function $(id){ return document.getElementById(id); }
+  function pad(n){ return (n < 10 ? "0" : "") + n; }
+  function now(){ return new Date().getTime(); }
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){
+      return {"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;"}[c];
+    });
+  }
+  function param(name){
+    var m = new RegExp("[?&]" + name + "=([^&#]*)").exec(location.search);
+    return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : "";
+  }
+  // "2026-09-26 14:03:22" -> "14:03:22" today, "09-25 14:03" on an older day
+  function when(t){
+    t = String(t || "");
+    var d = new Date();
+    var today = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    return t.slice(0, 10) === today ? t.slice(11, 19) : t.slice(5, 16);
+  }
+  function evidence(v){
+    return v.snapshot ? "/snapshots/" + encodeURIComponent(v.snapshot)
+         : (v.poster ? "/clips/" + encodeURIComponent(v.poster) : "");
+  }
+  function load(key){
+    try{ return (window.localStorage && localStorage.getItem(key)) || ""; }catch(e){ return ""; }
+  }
+  function save(key, val){
+    try{ if(val) localStorage.setItem(key, val); else localStorage.removeItem(key); }catch(e){}
+  }
+
+  // Anything that breaks here lands in the monitor's log ("[web]  client").
+  function report(msg){
+    try{
+      var x = new XMLHttpRequest();
+      x.open("POST", "/api/clientlog", true);
+      x.send(String(msg).slice(0, 1500));
+    }catch(e){}
+  }
+  window.onerror = function(msg, src, line, col){
+    report("tv: " + msg + " (line " + line + ":" + col + ") | " + navigator.userAgent);
+  };
+
+  function get(url, ok, fail){
+    var x = new XMLHttpRequest(), done = false;
+    x.onreadystatechange = function(){
+      if(x.readyState !== 4 || done) return;
+      done = true;
+      var data = null;
+      if(x.status === 200){ try{ data = JSON.parse(x.responseText); }catch(e){ data = null; } }
+      if(data !== null) ok(data); else fail(x.status);
+    };
+    x.open("GET", url, true);
+    try{ x.timeout = 10000; }catch(e){}
+    try{ x.send(); }catch(e){ if(!done){ done = true; fail(0); } }
+  }
+
+  /* ---- which camera this screen shows ----------------------------------- */
+  // A link's ?cam= wins; otherwise the camera last picked in the top bar on
+  // this screen (so a TV keeps it after the page reloads itself); otherwise
+  // every camera that is switched on.
+  var CAM_KEY = "pk_tv_cam";
+  var ONLY = param("cam") || load(CAM_KEY);
+  var names = {};                     // camera id -> name (every camera)
+  var many = false;                   // more than one camera exists: say which one
+  var lastState = null;
+
+  function showUrl(){
+    if(!(window.history && history.replaceState)) return;
+    try{ history.replaceState(null, "", location.pathname + (ONLY ? "?cam=" + encodeURIComponent(ONLY) : "")); }catch(e){}
+  }
+  function choose(id){
+    ONLY = id || "";
+    save(CAM_KEY, ONLY);
+    showUrl();
+    layoutKey = "";                   // rebuild the pictures for the new choice
+    selKey = "";
+    $("recent").innerHTML = '<div class="empty">loading&hellip;</div>';
+    if(lastState) render(lastState);
+    playKey = null; loadRecent(true);
+  }
+  var selKey = "";
+  function fillSelect(all){
+    var key = ONLY + "#", i;
+    for(i = 0; i < all.length; i++) key += all[i].id + "|" + all[i].name + "|" + (all[i].enabled ? 1 : 0) + ";";
+    if(key === selKey) return;        // unchanged: never rebuild a list someone is using
+    selKey = key;
+    var sel = $("camSel");
+    while(sel.options.length) sel.remove(0);
+    sel.add(new Option("All cameras", "", false, !ONLY));
+    for(i = 0; i < all.length; i++){
+      sel.add(new Option(all[i].name + (all[i].enabled ? "" : " (switched off)"), all[i].id, false, all[i].id === ONLY));
+    }
+    sel.value = ONLY;
+    // One camera only: nothing to choose.
+    $("camWrap").style.display = (all.length > 1 || ONLY) ? "inline-block" : "none";
+  }
+  $("camSel").onchange = function(){ choose(this.value); };
+
+  /* ---- the pictures ----------------------------------------------------- */
+  // One tile per camera on screen. MJPEG first: one connection that pushes
+  // frames. Some TV browsers show nothing at all for it, so when the camera is
+  // up but two checks in a row find no picture, a tile fetches one JPEG at a
+  // time instead. From 3 cameras on every tile does that from the start - a
+  // browser holds only ~6 connections per server and streams never let go.
+  var tiles = [], layoutKey = "";
+  // A browser that showed no MJPEG once will not show it after the next reload
+  // either (the page reloads by itself on every monitor restart): remember it,
+  // so the screen is not black for the ~20 s the check takes each time.
+  var PICTURES_KEY = "pk_tv_pictures";
+  function picturesOnly(){ return load(PICTURES_KEY) === "1"; }
+  function tileStream(t){
+    if(t.mode === "stream" && !t.dead) t.img.src = "/api/stream?cam=" + encodeURIComponent(t.id) + "&t=" + now();
+  }
+  function tilePictures(t, why){
+    if(t.mode === "pictures") return;
+    t.mode = "pictures";
+    if(why){
+      report("tv: no picture from the MJPEG stream of " + t.id + " - switching to single pictures | " + navigator.userAgent);
+      save(PICTURES_KEY, "1");
+    }
+    t.img.removeAttribute("src");
+    nextPicture(t);
+  }
+  function nextPicture(t){
+    if(t.dead) return;
+    var im = new Image();
+    im.onload = function(){
+      if(t.dead) return;
+      im.className = "feed";              // swap in the loaded picture: no refetch
+      t.box.replaceChild(im, t.img);
+      t.img = im;
+      t.timer = setTimeout(function(){ nextPicture(t); }, t.delay);
+    };
+    im.onerror = function(){ if(!t.dead) t.timer = setTimeout(function(){ nextPicture(t); }, 2000); };
+    im.src = "/api/frame?cam=" + encodeURIComponent(t.id) + "&t=" + now();
+  }
+  function hasPicture(t){ return t.img.naturalWidth > 0; }
+  function checkStreams(){
+    for(var i = 0; i < tiles.length; i++){
+      var t = tiles[i];
+      if(t.mode !== "stream") continue;
+      t.blank = (t.ok && !hasPicture(t)) ? t.blank + 1 : 0;
+      if(t.blank >= 2) tilePictures(t, true);
+    }
+  }
+  function dropTiles(){
+    for(var i = 0; i < tiles.length; i++){
+      var t = tiles[i];
+      t.dead = true;
+      if(t.timer) clearTimeout(t.timer);
+      t.img.removeAttribute("src");           // closes a stream's connection
+      t.box.parentNode.removeChild(t.box);
+    }
+    tiles = [];
+  }
+  // The grid that shows the pictures (16:9) biggest on this screen: two
+  // cameras on a TV go one above the other, four in a 2 x 2.
+  function bestCols(n){
+    var W = $("stage").clientWidth || 16, H = $("stage").clientHeight || 9, best = 1, bestArea = -1;
+    for(var cols = 1; cols <= n; cols++){
+      var rows = Math.ceil(n / cols), s = Math.min(W / cols / 16, H / rows / 9);
+      if(s * s > bestArea + 1e-9){ bestArea = s * s; best = cols; }
+    }
+    return best;
+  }
+  function placeTiles(){
+    var n = tiles.length, cols = bestCols(n), rows = Math.ceil(n / cols);
+    for(var i = 0; i < n; i++){
+      var st = tiles[i].box.style;
+      st.left = ((i % cols) * 100 / cols) + "%";
+      st.top = (Math.floor(i / cols) * 100 / rows) + "%";
+      st.width = (100 / cols) + "%";
+      st.height = (100 / rows) + "%";
+    }
+  }
+  window.onresize = placeTiles;
+  function buildTiles(list){
+    dropTiles();
+    var n = list.length;
+    var usePictures = n >= 3 || picturesOnly();
+    for(var i = 0; i < n; i++){
+      var c = list[i], box = document.createElement("div");
+      box.className = "tile" + (n > 1 ? " multi" : "");
+      box.innerHTML = '<div class="wait">waiting for the picture&hellip;</div><img class="feed" alt="">' +
+        '<div class="name">' + esc(c.name) + '<span class="off">OFFLINE</span></div>';
+      $("stage").appendChild(box);
+      var t = {id: c.id, box: box, img: box.getElementsByTagName("img")[0],
+               wait: box.getElementsByTagName("div")[0], off: box.getElementsByTagName("span")[0],
+               nameEl: box.getElementsByTagName("div")[1],
+               mode: usePictures ? "" : "stream", blank: 0, ok: false, wasOk: null,
+               delay: n <= 2 ? 100 : (n <= 4 ? 250 : 400), dead: false, timer: null};
+      // One camera alone needs no name tag: the top bar says it.
+      if(n === 1 && !many) t.nameEl.style.display = "none";
+      tiles.push(t);
+      if(usePictures) tilePictures(t, false); else tileStream(t);
+    }
+    placeTiles();
+  }
+
+  function noAccess(on){
+    var b = $("noAccess");
+    if(!b){
+      if(!on) return;
+      b = document.createElement("div");
+      b.id = "noAccess";
+      b.style.cssText = "position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:#0b0d10;color:#e8eaed;text-align:center;padding:30px;font-size:22px;line-height:1.5";
+      b.innerHTML = '<div><div style="font-size:30px;font-weight:700;margin-bottom:12px">This screen has no access</div>' +
+        'Open the link of this screen on the TV once.<br>The administrator finds it in the dashboard: Settings &rarr; TV screens.</div>';
+      document.body.appendChild(b);
+    }
+    b.style.display = on ? "flex" : "none";
+  }
+
+  /* ---- monitor + camera state ------------------------------------------- */
+  var lastUptime = null, wasDown = false;
+  function loopState(){
+    get("/api/state" + (ONLY ? "?cam=" + encodeURIComponent(ONLY) : ""), function(s){
+      $("dMon").className = "dot ok"; $("tMon").innerHTML = "Monitor running";
+      // The monitor restarted - usually to deploy new code. A wall screen has
+      // nobody to press refresh, so reload the page and pick that code up.
+      if(lastUptime !== null && s.uptime_sec < lastUptime){ location.reload(); return; }
+      lastUptime = s.uptime_sec;
+      lastState = s;
+      noAccess(false);
+      render(s);
+      setTimeout(loopState, 2000);
+    }, function(code){
+      // Since 7 Oct 2026 a screen needs its own link (Dashboard -> Settings ->
+      // TV screens) or a login; a saved camera it may no longer show -> all of its own.
+      if(code === 403 && ONLY){ choose(""); setTimeout(loopState, 500); return; }
+      noAccess(code === 401);
+      if(code === 401){ $("dMon").className = "dot bad"; $("tMon").innerHTML = "No access"; setTimeout(loopState, 10000); return; }
+      $("dMon").className = "dot bad"; $("tMon").innerHTML = "Monitor unreachable";
+      wasDown = true;
+      setTimeout(loopState, 3000);
+    });
+  }
+  function render(s){
+    var all = s.cameras || [], show = [], i;
+    names = {};
+    for(i = 0; i < all.length; i++) names[all[i].id] = all[i].name;
+    many = all.length > 1;
+    if(ONLY && !names[ONLY]){              // that camera was removed: show them all
+      ONLY = "";
+      save(CAM_KEY, "");
+      showUrl();
+      layoutKey = "";
+      playKey = null; loadRecent(true);
+    }
+    fillSelect(all);
+    for(i = 0; i < all.length; i++){
+      if(ONLY ? all[i].id === ONLY : all[i].enabled) show.push(all[i]);
+    }
+    var key = ONLY + "#";
+    for(i = 0; i < show.length; i++) key += show[i].id + "|" + show[i].name + ";";
+    if(key !== layoutKey){ layoutKey = key; buildTiles(show); }
+
+    var up = 0, persons = 0, fps = 0;
+    for(i = 0; i < show.length; i++){
+      var c = show[i], t = tiles[i];
+      if(c.camera_ok) up++;
+      persons += c.persons || 0;
+      fps = c.fps || 0;
+      if(!t) continue;
+      t.ok = !!c.camera_ok;
+      // An MJPEG image never reconnects by itself: reopen it after an
+      // outage, or when the camera comes back.
+      if(t.mode === "stream" && (wasDown || (t.ok && t.wasOk === false))) tileStream(t);
+      t.wasOk = t.ok;
+      t.off.style.display = (!t.ok && hasPicture(t)) ? "inline" : "none";
+      t.wait.style.display = hasPicture(t) ? "none" : "block";
+      t.wait.innerHTML = t.ok ? "waiting for the picture&hellip;"
+        : esc("Camera: " + (c.enabled ? (c.last_error || "connecting…") : "switched off"));
+    }
+    wasDown = false;
+
+    if(!show.length){
+      $("msg").style.display = "block";
+      $("msg").innerHTML = "No camera is switched on.";
+      $("dCam").className = "dot bad"; $("tCam").innerHTML = "no camera";
+      $("tFps").innerHTML = "";
+    } else if(show.length === 1){
+      $("msg").style.display = "none";
+      var c1 = show[0];
+      $("dCam").className = "dot " + (c1.camera_ok ? "ok" : "bad");
+      $("tCam").innerHTML = esc((many ? c1.name + " " : "Camera ") + (c1.camera_ok ? "live" : "- " + (c1.last_error || "connecting…")));
+      $("tFps").innerHTML = fps.toFixed(1) + " fps &middot; " + persons + " in view";
+    } else {
+      $("msg").style.display = "none";
+      $("dCam").className = "dot " + (up === show.length ? "ok" : "bad");
+      $("tCam").innerHTML = up + " / " + show.length + " cameras live";
+      $("tFps").innerHTML = persons + " in view";
+    }
+    $("sideTitle").innerHTML = ONLY && names[ONLY] ? esc("VIOLATIONS - " + names[ONLY].toUpperCase()) : "LATEST VIOLATIONS";
+    var rl = ruleList(s);
+    showRules(show.length === 1 ? rl.list : null, rl.mode);
+  }
+
+  /* The rules out of whatever /api/state returned: `rule_status` when the
+     monitor knows per-rule status, else the plain `rules` list from a monitor
+     running older code (this page is served from disk, so it can be newer than
+     the API - it renders either without blanking). active === null means "the
+     monitor did not say". */
+  function ruleList(s){
+    var st = (s && s.rule_status) || [], codes = (s && s.rules) || [], out = [], i;
+    // only the rules this camera checks (Cameras page -> Rules…)
+    if(st.length){
+      for(i = 0; i < st.length; i++){ if(!/^not checked on this camera/.test(st[i].reason || "")) out.push(st[i]); }
+      return {list: out, mode: "status"};
+    }
+    for(i = 0; i < codes.length; i++) out.push({rule: codes[i], active: null});
+    return {list: out, mode: codes.length ? "codes" : "none"};
+  }
+
+  // How much of the software is judging what this screen shows. A rule that
+  // cannot fire (no zone drawn for it, switched off) is counted out here rather
+  // than being invisible, with the reason in the tooltip.
+  function showRules(list, mode){
+    var el = $("tRules");
+    if(mode !== "status" || !list || !list.length){
+      el.className = "it mut";
+      if(mode === "codes" && list && list.length){
+        el.title = "This monitor reports the rules that are switched on, not which can " +
+                   "actually fire - it is running older code.";
+        el.innerHTML = list.length + " rules";
+      } else {
+        el.innerHTML = ""; el.title = "";
+      }
+      return;
+    }
+    var off = [], i;
+    for(i = 0; i < list.length; i++){ if(!list[i].active) off.push(list[i].rule + ": " + list[i].reason); }
+    if(off.length){
+      el.className = "it warn";
+      el.title = off.join("; ");
+      el.innerHTML = (list.length - off.length) + " of " + list.length + " rules";
+    } else {
+      el.className = "it mut";
+      el.title = "Every rule is running";
+      el.innerHTML = list.length + " rules";
+    }
+  }
+
+  /* ---- alerts ----------------------------------------------------------- */
+  // A new violation shows ONLY in the side list: it goes on top, highlighted
+  // in its rule's colour with a NEW tag for NEW_SEC. Nothing covers the picture.
+  var NEW_SEC = 20;
+  var alertSeq = -1, fresh = {};      // violation key -> highlight until (ms)
+  function vkey(v){ return (v.camera || "cam1") + "|" + v.time + "|" + v.track_id + "|" + v.rule; }
+  function loopAlerts(){
+    get("/api/alerts?since=" + Math.max(alertSeq, 0), function(r){
+      // First poll, or the monitor restarted (its counter starts over): take the
+      // sequence without replaying a backlog.
+      if(alertSeq >= 0 && r.seq >= alertSeq && r.alerts.length){
+        var mine = [];
+        for(var i = 0; i < r.alerts.length; i++){
+          if(!ONLY || r.alerts[i].camera === ONLY) mine.push(r.alerts[i]);
+        }
+        if(mine.length){
+          for(var j = 0; j < mine.length; j++) fresh[vkey(mine[j])] = now() + NEW_SEC * 1000;
+          loadRecent();
+          setTimeout(loadRecent, NEW_SEC * 1000 + 500);    // take the highlight off again
+        }
+      }
+      alertSeq = r.seq;
+      setTimeout(loopAlerts, 1000);          // cheap (in-memory) - banners come at once
+    }, function(){ setTimeout(loopAlerts, 3000); });
+  }
+
+  /* ---- latest violations ------------------------------------------------ */
+  var playKey = null, recentRows = [];
+  // tap a card: its clip plays in place; tap again (or another card) to stop / switch
+  $("recent").onclick = function(e){
+    var el = e.target || e.srcElement;
+    if(el && el.tagName === "VIDEO") return;            // the video's own controls
+    while(el && el !== this && !(el.className && (' ' + el.className + ' ').indexOf(' card ') >= 0)) el = el.parentNode;
+    if(!el || el === this) return;
+    var v = recentRows[+el.getAttribute("data-i")];
+    if(!v || !v.clip) return;
+    playKey = playKey === vkey(v) ? null : vkey(v);
+    loadRecent(true);
+  };
+  function loadRecent(force){
+    if(playKey && force !== true) return;            // a clip is playing: do not rebuild the list under it
+    var asked = ONLY;
+    get("/api/violations?limit=8" + (asked ? "&cam=" + encodeURIComponent(asked) : ""), function(rows){
+      if(asked !== ONLY) return;             // the camera changed meanwhile
+      if(!rows.length){ $("recent").innerHTML = '<div class="empty">No violations recorded yet.</div>'; return; }
+      var html = "", t = now(), k;
+      for(k in fresh){ if(fresh.hasOwnProperty(k) && fresh[k] < t) delete fresh[k]; }
+      for(var i = 0; i < rows.length; i++){
+        var v = rows[i], rule = v.rule || "?", pic = evidence(v), col = COLORS[rule] || "#3987e5";
+        var isNew = fresh[vkey(v)] > t;
+        var playing = v.clip && playKey === vkey(v);
+        html += '<div class="card' + (playing ? " play" : "") + (isNew ? ' new" style="border-color:' + col : "") + '" data-i="' + i + '">' +
+          (playing ? '<video src="/clips/' + encodeURIComponent(v.clip) + '"' + (pic ? ' poster="' + pic + '"' : "") +
+                     ' autoplay muted playsinline controls></video>'
+                   : (pic ? '<img src="' + pic + '" alt="">' : "")) +
+          '<div class="t"><span class="badge" style="background:' + col + '">' +
+          esc(rule) + '</span><span class="mut">' + esc(when(v.time)) + '</span>' +
+          (isNew ? '<span class="newtag">NEW</span>' : "") + '<br>' +
+          esc(v.desc || rule) + '<br><span class="mut">' +
+          (many && !asked ? esc(v.camera_name || names[v.camera] || v.camera) + " &middot; " : "") +
+          'Person ' + (v.person ? esc(v.person) : '#' + esc(v.track_id)) + '</span>' +
+          (v.clip && !playing ? '<span class="play-ic">&#9654; clip</span>' : "") + '</div></div>';
+      }
+      recentRows = rows;
+      $("recent").innerHTML = html;
+      var vid = $("recent").getElementsByTagName("video")[0];
+      if(vid){
+        vid.onended = function(){ playKey = null; loadRecent(true); };
+        vid.onerror = function(){ playKey = null; loadRecent(true); };   // clip not written yet
+      }
+    }, function(){});
+  }
+
+  // A new version of this page (deployed without restarting the monitor) is
+  // picked up by itself: every 10 minutes the page compares its revision with
+  // the one the server has now - a wall screen has nobody to press refresh.
+  var PAGE_REV = "2026-10-12.2";
+  function checkRev(){
+    var x = new XMLHttpRequest();
+    x.onreadystatechange = function(){
+      if(x.readyState !== 4 || x.status !== 200) return;
+      var m = /PAGE_REV = "([^"]+)"/.exec(x.responseText);
+      if(m && m[1] !== PAGE_REV) location.reload();
+    };
+    try{ x.open("GET", location.pathname + "?rev=" + now(), true); x.send(); }catch(e){}
+  }
+
+  function tick(){
+    var d = new Date();
+    $("tClock").innerHTML = pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+  }
+
+  showUrl();
+  loopState();
+  loopAlerts();
+  loadRecent();
+  tick();
+  setInterval(tick, 1000);
+  setInterval(checkStreams, 9000);
+  setInterval(loadRecent, 10000);           // skipped by itself while a clip plays
+  setInterval(checkRev, 600000);
+})();
+</script>
+</body>
+</html>

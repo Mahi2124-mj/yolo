@@ -1,0 +1,15 @@
+# exact versions of the working PC (Python 3.12, CPU)
+imageio-ffmpeg==0.6.0
+insightface==2.1
+lap==0.5.13
+mediapipe==0.10.35
+numpy==2.4.6
+onnxruntime==1.30.0
+opencv-python==4.13.0.92
+pillow==12.2.0
+psutil==7.2.2
+PyYAML==6.0.3
+scipy==1.17.1
+torch==2.12.0+cu130
+torchvision==0.27.0+cu130
+ultralytics==8.4.64

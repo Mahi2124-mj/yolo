@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Zone editor</title>
+<script>
+/* The zone editor now lives inside the dashboard (/#zones). Old links and
+   bookmarks to /zones?cam=... land there, with the same camera. ES5. */
+(function () {
+  var m = /[?&]cam=([^&#]*)/.exec(location.search);
+  location.replace("/" + (m ? "?cam=" + m[1] : "") + "#zones");
+})();
+</script>
+</head>
+<body style="background:#090c11;color:#a9b4c4;font:14px 'Segoe UI',sans-serif;padding:24px">
+Opening the zone editor… <a href="/#zones" style="color:#5a9cec">continue</a>
+</body>
+</html>
